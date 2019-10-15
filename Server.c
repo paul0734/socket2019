@@ -11,8 +11,11 @@ char sendBuffer[BUFSIZE];
 char sendBuffer2[BUFSIZE] = "안녕하세요, 만나서만가워요";
 char sendBuffer3[BUFSIZE] = "내 이름은 이건우야";
 char sendBuffer4[BUFSIZE] = "나는 23살이야";
+char sendBuffer5[BUFSIZE] = "what?";
 char cmpBuffer[2][BUFSIZE];
 char *t;
+char *str[100];
+char *token;
 
 int main(){
 	int c_socket, s_socket;
@@ -21,7 +24,10 @@ int main(){
 	int n;
 	int i;
 	int lt;
+	int idx=0;
 	int cnt=0;
+	FILE *fp;
+	char buff[255];
 	// 1. 서버 소켓 생성
 	//서버 소켓 = 클라이언트의 접속 요청을 처리(허용)해 주기 위한 소켓
 	s_socket = socket(PF_INET, SOCK_STREAM, 0); //TCP/IP 통신을 위한 서버 소켓 생성
@@ -60,7 +66,7 @@ int main(){
 			
 			
 			n = read(c_socket, rcvBuffer, sizeof(rcvBuffer));
-			rcvBuffer[n]='\0';
+			rcvBuffer[n]='\0'; //뒤에 붙는 개행문자삭제
 			printf("received data : %s\n",rcvBuffer);
 			
 			if(strncasecmp(rcvBuffer, "quit", 4) == 0 || strncasecmp(rcvBuffer,"kill server",11) == 0)
@@ -90,8 +96,27 @@ int main(){
 			}
 			if(strcmp(cmpBuffer[0], cmpBuffer[1]) == 0){
 				strcpy(sendBuffer,"0");
-			}else{ strcpy(sendBuffer,"1" );}
+			}else{ strcpy(sendBuffer,"1" );
+			}
 		}
+		else if(strncmp(rcvBuffer, "readfile", 8) ==0 ){
+			fp = fopen("text.txt", "r");
+				if(fp){
+					while(fgets(buff, 255, (FILE *)fp)){
+						printf("%s", buff);
+						write(c_socket, buff, strlen(buff));
+					}			
+				}
+			fclose(fp);
+		}
+		else if(strncmp(rcvBuffer, "exec", 4) ==0 ){
+			char *command;
+			token = strtok(rcvBuffer, " ");
+			command = strtok(NULL, "\0");
+			printf("command : %s\n", command);
+		}
+		else
+				write(c_socket, sendBuffer5, strlen(sendBuffer5));	
 		n=strlen(sendBuffer);
 		write(c_socket, sendBuffer, n);
 	}
