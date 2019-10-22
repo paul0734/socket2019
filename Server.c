@@ -11,7 +11,7 @@ char sendBuffer[BUFSIZE];
 char sendBuffer2[BUFSIZE] = "안녕하세요, 만나서만가워요";
 char sendBuffer3[BUFSIZE] = "내 이름은 이건우야";
 char sendBuffer4[BUFSIZE] = "나는 23살이야";
-char sendBuffer5[BUFSIZE] = "what?";
+char sendBuffer5[BUFSIZE] = "error";
 char cmpBuffer[2][BUFSIZE];
 char *t;
 char *str[100];
@@ -27,6 +27,7 @@ int main(){
 	int idx=0;
 	int cnt=0;
 	FILE *fp;
+	
 	char buff[255];
 	// 1. 서버 소켓 생성
 	//서버 소켓 = 클라이언트의 접속 요청을 처리(허용)해 주기 위한 소켓
@@ -99,21 +100,44 @@ int main(){
 			}else{ strcpy(sendBuffer,"1" );
 			}
 		}
-		else if(strncmp(rcvBuffer, "readfile", 8) ==0 ){
-			fp = fopen("text.txt", "r");
-				if(fp){
-					while(fgets(buff, 255, (FILE *)fp)){
-						printf("%s", buff);
-						write(c_socket, buff, strlen(buff));
-					}			
+		else if(strncmp(rcvBuffer, "readfile", 8) == 0 ){
+			t = strtok(rcvBuffer, " "); //t = readfile
+			cnt = 0;
+			while(t != NULL){
+				strcpy(cmpBuffer[cnt], t);//cmpBuffer[0] = readfile, cmpBuffer[1] = 파일명 
+				cnt++;	
+				t = strtok(NULL," "); //t = 파일명
+			}
+			/*// other
+			 t = strtok(rcvBuffer, " "); //t = readfile
+			 t = strtok(NULL, " "); //t = <filename> 
+			 fp = fopen(t, "r");			
+			*/
+			fp = fopen(cmpBuffer[1], "r");
+			if(fp){ //파일이 정상적으로 오픈되었다면 실행
+				while(fgets(buff, 255, (FILE *)fp)){
+					printf("%s", buff);
+					write(c_socket, buff, strlen(buff));
 				}
-			fclose(fp);
+				fclose(fp);			
+			}else{
+				write(c_socket, sendBuffer5, strlen(sendBuffer5));
+			}
+			
 		}
-		else if(strncmp(rcvBuffer, "exec", 4) ==0 ){
+		else if(strncmp(rcvBuffer, "exec", 4) == 0 ){
+			char *t;			
 			char *command;
-			token = strtok(rcvBuffer, " ");
-			command = strtok(NULL, "\0");
-			printf("command : %s\n", command);
+			t = strtok(rcvBuffer, " "); //t = exec
+			command = strtok(NULL, "\0");//exec 뒤에있는 모든 문자열을 command 로 저장 "\0"은 공			
+			printf("command is %s",command);
+			int result = system(command);//command가 정상실행되면 0을 리턴, 그렇지 않으면 0이아닌 에러코드 리턴
+			if(!result)//성공한 경우
+				sprintf(buffer, "[%s] 명령어가 성공했습니다. n", command);
+			else
+				sprintf(buffer, "무슨 말인지 모르겠습니다.");
+			write(c_socket, buffer, strlen(buffer));
+			
 		}
 		else
 				write(c_socket, sendBuffer5, strlen(sendBuffer5));	
