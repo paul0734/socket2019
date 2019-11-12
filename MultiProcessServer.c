@@ -2,6 +2,9 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <string.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #define PORT 9000
 #define BUFSIZE 100
@@ -16,19 +19,25 @@ char cmpBuffer[2][BUFSIZE];
 char *t;
 char *str[100];
 char *token;
+void do_service(int c_socket);
+void sig_handler();
+int c_socket, s_socket;
+struct sockaddr_in s_addr, c_addr;
+int len;
+int n;
+int i;
+int lt;
+int idx=0;
+int cnt=0;
+FILE *fp;
+int pid;
+char buff[255];
+int numClient = 0;
 
 int main(){
-	int c_socket, s_socket;
-	struct sockaddr_in s_addr, c_addr;
-	int len;
-	int n;
-	int i;
-	int lt;
-	int idx=0;
-	int cnt=0;
-	FILE *fp;
 	
-	char buff[255];
+	signal(SIGCHLD, sig_handler);//첫번째 인자 : 시그널번호, 두번째 인자 : 첫번째 인자의 시그널이 발생했을 때 실행되는 함수
+	
 	// 1. 서버 소켓 생성
 	//서버 소켓 = 클라이언트의 접속 요청을 처리(허용)해 주기 위한 소켓
 	s_socket = socket(PF_INET, SOCK_STREAM, 0); //TCP/IP 통신을 위한 서버 소켓 생성
@@ -51,15 +60,29 @@ int main(){
 		printf("listen Fail\n");
 		return -1;
 	}
-
-	//5. 클라이언트 요청 처리
 	while(1){ //무한 루프
 		len = sizeof(c_addr);
 		printf("클라이언트 접속을 기다리는 중....\n");
 		c_socket = accept(s_socket, (struct sockaddr *)&c_addr, &len); 
 		//클라이언트의 요청이 오면 허용(accept)해 주고, 해당 클라이언트와 통신할 수 있도록 클라이언트 소켓(c_socket)을 반환함.
 		printf("/client is connected\n");
-		printf("클라이언트 접속 허용\n");
+		numClient++;
+		printf("현재 접속 중인 클라이언트 수 :  [%d]\n", numClient);
+		if((pid = fork()) > 0){//부모프로세스
+			close(c_socket);
+			continue;
+		}else if(pid == 0){//자식프로세스
+			close(s_socket);
+			do_service(c_socket);
+			exit(0);
+		}else{//fork()합수 실패
+			printf("fork() failed\n");
+		}
+	}
+	return 0;	
+}
+
+void do_service(int c_socket){//5. 클라이언트 요청 처리
 		while(1){
 			for(i=0;i<BUFSIZE;i++){
 				rcvBuffer[i]='\0';
@@ -105,7 +128,7 @@ int main(){
 			cnt = 0;
 			while(t != NULL){
 				strcpy(cmpBuffer[cnt], t);//cmpBuffer[0] = readfile, cmpBuffer[1] = 파일명 
-				cnt++;	
+				cnt++;
 				t = strtok(NULL," "); //t = 파일명
 			}
 			/*// other
@@ -136,18 +159,25 @@ int main(){
 				sprintf(buffer, "[%s] 명령어가 성공했습니다. n", command);
 			else
 				sprintf(buffer, "무슨 말인지 모르겠습니다.");
+			
 			write(c_socket, buffer, strlen(buffer));
 			
 		}
 		else
-				write(c_socket, sendBuffer5, strlen(sendBuffer5));	
+			write(c_socket, sendBuffer5, strlen(sendBuffer5));	
+		
 		n=strlen(sendBuffer);
 		write(c_socket, sendBuffer, n);
 	}
 		close(c_socket);
-		if(strncasecmp(rcvBuffer,"kill server",11) == 0)
-			break;
-	}
-	close(s_socket);
-	return 0;	
 }
+void sig_handler(int signo){
+	int pid;
+	int status;
+	
+	pid = wait(&status);
+	printf("pid[%d] is terminated. status = %d\n", pid, status);//status = 정상적으로 종료되면 0 반환
+	numClient--;
+	printf("현재 접속 중인 클라이언트 수 :  [%d]\n",numClient);
+}
+
