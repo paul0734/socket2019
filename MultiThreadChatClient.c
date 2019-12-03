@@ -36,10 +36,11 @@ int main(int argc, char *argv[ ])
         printf("Can not connect\n");
         return -1;
     }
+	write(c_socket, nickname, strlen(nickname));
     pthread_create(&thread_1, NULL, do_send_chat, (void *)&c_socket);//pthread_create with do_send function
     pthread_create(&thread_2, NULL, do_receive_chat, (void *)&c_socket);//pthread_create with 					do_receive_chat function
-   pthread_join(thread_1, (void *)&nfds);
-	pthread_join(thread_2, (void *)&nfds);//pthread_join both threads
+   pthread_join(thread_1, NULL);
+	pthread_join(thread_2, NULL);//pthread_join both threads
     close(c_socket);
 }
 void * do_send_chat(void *arg)
@@ -51,7 +52,17 @@ void * do_send_chat(void *arg)
     while(1) {
         memset(buf, 0, sizeof(buf));
         if((n = read(0, buf, sizeof(buf))) > 0 ) { //키보드에서 입력 받은 문자열을 buf에 저장. read()함수의 첫번째 인자는 file descriptor로써, 0은 stdin, 즉 키보드를 의미함.
+				char *t = NULL;
+				char *name = NULL;
+				char *message = NULL;
+				if(strncmp(buf, "/w", 2)==0){
+					t = strtok(buf, " ");
+					name = strtok(NULL, " ");
+					message = strtok(NULL, "\0");
+					sprintf(chatData, "%s %s [%s] %s",t, name, nickname, message);
+				}else{
             sprintf(chatData, "[%s] %s", nickname, buf);
+				}
             write(c_socket, chatData, strlen(chatData)); //서버로 채팅 메시지 전달
             if(!strncmp(buf, escape, strlen(escape))) { //'exit' 메세지를 입력하면,
                 pthread_kill(thread_2, SIGINT); //do_receive_chat 스레드를 종료시킴
